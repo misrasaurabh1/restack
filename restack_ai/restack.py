@@ -366,34 +366,3 @@ class Restack:
         except Exception as e:
             log_with_context("ERROR", "Failed to send workflow event", error=str(e))
             raise e
-
-
-class Restack:
-    options: Optional["CloudConnectionOptions"] = None  # Assume this is defined somewhere in your codebase
-
-    def get_connection_options(self) -> Dict[str, Any]:
-        options = self.options
-        if options:
-            target_host = options.address if options.address is not None else "localhost:7233"
-            api_address = f"https://{options.api_address}" if options.api_address is not None else "http://localhost:6233"
-            engine_id = options.engine_id if options.engine_id is not None else "local"
-            api_key = options.api_key
-        else:
-            target_host = "localhost:7233"
-            api_address = "http://localhost:6233"
-            engine_id = "local"
-            api_key = None
-
-        connection_options = {
-            "target_host": target_host,
-            "metadata": {
-                "restack-engineId": engine_id,
-                "restack-apiAddress": api_address,
-            },
-        }
-
-        if api_key is not None:
-            connection_options["tls"] = True
-            connection_options["api_key"] = api_key
-
-        return connection_options
