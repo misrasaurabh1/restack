@@ -1,15 +1,14 @@
-import os
 import asyncio
-import aiohttp
+import os
+from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
+
+import aiohttp
 from temporalio.client import (
     Client,
     Schedule,
     ScheduleActionStartWorkflow,
     ScheduleSpec,
-    ScheduleCalendarSpec,
-    ScheduleIntervalSpec,
-    ScheduleRange,
 )
 from temporalio.common import (
     SearchAttributePair,
@@ -17,13 +16,12 @@ from temporalio.common import (
     TypedSearchAttributes,
 )
 from temporalio.worker import Worker
-from dataclasses import dataclass
 
-from .playground.workflow import playgroundRun
-from .observability import log_with_context
-from .security import DataConverter
-from .pydantic import pydantic_data_converter
 from .endpoints import explore_class_details
+from .observability import log_with_context
+from .playground.workflow import playgroundRun
+from .pydantic import pydantic_data_converter
+from .security import DataConverter
 
 __all__ = ["ScheduleCalendarSpec", "ScheduleIntervalSpec", "ScheduleRange"]
 
@@ -56,32 +54,31 @@ class Restack:
         self.options = options
 
     def get_connection_options(self) -> Dict[str, Any]:
-        target_host = (
-            self.options.address
-            if self.options and self.options.address is not None
-            else "localhost:7233"
-        )
-        api_address = (
-            f"https://{self.options.api_address}"
-            if self.options and self.options.api_address is not None
-            else "http://localhost:6233"
-        )
-        engine_id = (
-            self.options.engine_id
-            if self.options and self.options.engine_id is not None
-            else "local"
-        )
-        options = {
+        options = self.options
+        if options:
+            target_host = options.address if options.address is not None else "localhost:7233"
+            api_address = f"https://{options.api_address}" if options.api_address is not None else "http://localhost:6233"
+            engine_id = options.engine_id if options.engine_id is not None else "local"
+            api_key = options.api_key
+        else:
+            target_host = "localhost:7233"
+            api_address = "http://localhost:6233"
+            engine_id = "local"
+            api_key = None
+
+        connection_options = {
             "target_host": target_host,
             "metadata": {
                 "restack-engineId": engine_id,
                 "restack-apiAddress": api_address,
             },
         }
-        if self.options and self.options.api_key is not None:
-            options["tls"] = True
-            options["api_key"] = self.options.api_key
-        return options
+
+        if api_key is not None:
+            connection_options["tls"] = True
+            connection_options["api_key"] = api_key
+
+        return connection_options
 
     async def connect(
         self, connection_options: Optional[CloudConnectionOptions] = None
@@ -369,3 +366,34 @@ class Restack:
         except Exception as e:
             log_with_context("ERROR", "Failed to send workflow event", error=str(e))
             raise e
+
+
+class Restack:
+    options: Optional["CloudConnectionOptions"] = None  # Assume this is defined somewhere in your codebase
+
+    def get_connection_options(self) -> Dict[str, Any]:
+        options = self.options
+        if options:
+            target_host = options.address if options.address is not None else "localhost:7233"
+            api_address = f"https://{options.api_address}" if options.api_address is not None else "http://localhost:6233"
+            engine_id = options.engine_id if options.engine_id is not None else "local"
+            api_key = options.api_key
+        else:
+            target_host = "localhost:7233"
+            api_address = "http://localhost:6233"
+            engine_id = "local"
+            api_key = None
+
+        connection_options = {
+            "target_host": target_host,
+            "metadata": {
+                "restack-engineId": engine_id,
+                "restack-apiAddress": api_address,
+            },
+        }
+
+        if api_key is not None:
+            connection_options["tls"] = True
+            connection_options["api_key"] = api_key
+
+        return connection_options
