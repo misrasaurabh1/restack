@@ -17,7 +17,9 @@ class WorkflowLogger:
 
     def _log(self, level: str, message: str, **kwargs: Any):
         if temporal_workflow._Runtime.maybe_current():
-            getattr(self._logger, level)(message, extra={"extra_fields": {**kwargs, "client_log": True}})
+            getattr(self._logger, level)(
+                message, extra={"extra_fields": {**kwargs, "client_log": True}}
+            )
         else:
             log_with_context(level.upper(), message, **kwargs)
 
@@ -63,7 +65,7 @@ class Workflow:
         return temporal_workflow.defn(*args, **kwargs, sandboxed=False)
 
     def memory(self, fn):
-        return temporal_workflow.query(fn)
+        return self.query(fn)
 
     def event(self, fn):
         return temporal_workflow.update(fn)
@@ -156,6 +158,10 @@ class Workflow:
         if workflow_id.startswith(f"{engine_id}-"):
             return workflow_id
         return f"{engine_id}-{workflow_id}"
+
+    def __init__(self):
+        # Initialize frequently used method from temporal_workflow to optimize attribute lookups
+        self.query = temporal_workflow.query
 
 
 workflow = Workflow()
