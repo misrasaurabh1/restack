@@ -27,6 +27,7 @@ from .endpoints import explore_class_details
 
 __all__ = ["ScheduleCalendarSpec", "ScheduleIntervalSpec", "ScheduleRange"]
 
+
 @dataclass
 class CloudConnectionOptions:
     engine_id: str
@@ -44,6 +45,7 @@ class ServiceOptions:
     max_concurrent_function_runs: Optional[int] = 1000
     endpoints: Optional[bool] = True
 
+
 class Restack:
     api_key: Optional[str] = None
     client: Optional[Client] = None
@@ -56,32 +58,35 @@ class Restack:
         self.options = options
 
     def get_connection_options(self) -> Dict[str, Any]:
-        target_host = (
-            self.options.address
-            if self.options and self.options.address is not None
-            else "localhost:7233"
-        )
+        options = self.options
+        if options:
+            address = options.address
+            api_address = options.api_address
+            engine_id = options.engine_id
+            api_key = options.api_key
+        else:
+            address = api_address = engine_id = api_key = None
+
+        target_host = address if address is not None else "localhost:7233"
         api_address = (
-            f"https://{self.options.api_address}"
-            if self.options and self.options.api_address is not None
+            f"https://{api_address}"
+            if api_address is not None
             else "http://localhost:6233"
         )
-        engine_id = (
-            self.options.engine_id
-            if self.options and self.options.engine_id is not None
-            else "local"
-        )
-        options = {
+        engine_id = engine_id if engine_id is not None else "local"
+
+        connection_options = {
             "target_host": target_host,
             "metadata": {
                 "restack-engineId": engine_id,
                 "restack-apiAddress": api_address,
             },
         }
-        if self.options and self.options.api_key is not None:
-            options["tls"] = True
-            options["api_key"] = self.options.api_key
-        return options
+        if api_key is not None:
+            connection_options["tls"] = True
+            connection_options["api_key"] = api_key
+
+        return connection_options
 
     async def connect(
         self, connection_options: Optional[CloudConnectionOptions] = None
@@ -148,7 +153,9 @@ class Restack:
             log_with_context("INFO", "Starting service...")
             client = await self.create_client()
             engine_id = self.get_connection_options()["metadata"]["restack-engineId"]
-            api_address = self.get_connection_options()["metadata"]["restack-apiAddress"]
+            api_address = self.get_connection_options()["metadata"][
+                "restack-apiAddress"
+            ]
             service = Worker(
                 identity=f"{engine_id}-{task_queue or 'restack'}-{os.getpid()}",
                 client=client,
@@ -162,17 +169,17 @@ class Restack:
             log_with_context("INFO", "Service created successfully")
 
             if options.endpoints:
-                
+
                 log_with_context("INFO", "Creating endpoints...")
                 async with aiohttp.ClientSession() as session:
-                    
+
                     workflow_details = []
-                    for workflow in (workflows or []):
-                            details = explore_class_details(workflow)
-                            workflow_details.append(details)
+                    for workflow in workflows or []:
+                        details = explore_class_details(workflow)
+                        workflow_details.append(details)
 
                     function_details = []
-                    for function in (functions or []):
+                    for function in functions or []:
                         details = explore_class_details(function)
                         function_details.append(details)
 
@@ -185,11 +192,15 @@ class Restack:
 
                     try:
                         async with session.post(
-                            f"{api_address}/api/engine/endpoints", json=endpoints_payload
+                            f"{api_address}/api/engine/endpoints",
+                            json=endpoints_payload,
                         ) as response:
                             response_text = await response.text()
                             log_with_context(
-                                "DEBUG", "Workflows API registered successfully", status_code=response.status, response_text=response_text
+                                "DEBUG",
+                                "Workflows API registered successfully",
+                                status_code=response.status,
+                                response_text=response_text,
                             )
                     except Exception as e:
                         log_with_context(
